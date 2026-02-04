@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import EmailEntry from "./components/EmailEntry"
-import PhoneEntry from "./components/PhoneEntry"
+import EmailEntry from "@components/EmailEntry"
+import PhoneEntry from "@components/PhoneEntry"
 
 export default function Home() {
   const [entryMethod, setEntryMethod] = useState<"email" | "phone" | null>(null)
