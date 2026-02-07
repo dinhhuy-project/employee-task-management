@@ -48,6 +48,7 @@ export default function EmailEntry({ onBack }: EmailEntryProps) {
 
       const user = {
         ...response.user,
+        id: response.user.employeeId || response.user.id,
         type: "employee" as const,
         token: response.token,
       };

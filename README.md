@@ -132,3 +132,27 @@ frontend/
 - **Notifications** - Email and SMS for receiving code and account setup link
 - **Secure Auth** - JWT-based authentication for secure sessions
 - **Cloud Storage** - Firebase backend for scalability
+
+## Screenshots
+
+![alt text](image.png)
+
+### Owner Role:
+
+![alt text](image-3.png)
+
+![alt text](image-4.png)
+
+![alt text](image-5.png)
+
+![alt text](image-6.png)
+
+### Employee Role:
+
+![alt text](image-2.png)
+
+![alt text](image-7.png)
+
+![alt text](image-8.png)
+
+![alt text](image-9.png)
