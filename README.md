@@ -1,320 +1,134 @@
-# Employee Task Management System - Complete Documentation
+# Employee Task Management System
 
-## Quick Overview
+A full-stack application for managing employee tasks, assignments, and team communication in real-time. Built with Node.js and Next.js, this system helps organize workflows and keep teams connected through integrated messaging and notifications.
 
-A full-stack employee task management system with:
+## What's Inside
 
-- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
-- **Backend**: Node.js/Express with Firestore
-- **Auth**: Passwordless email/phone authentication
-- **Features**: Employee management, task tracking, real-time updates
+### Backend (`/backend`)
 
-## 🚀 Quick Start
+The Express.js server handles all the heavy lifting:
+
+- **Authentication**: JWT-based auth for both employees and owners
+- **Real-time Chat**: Socket.io integration for instant messaging between team members
+- **Task Management**: Create, update, assign, and track tasks
+- **Email & SMS Notifications**: Automated updates via Nodemailer and Twilio
+- **Firebase Integration**: Cloud storage and database management
+
+**Key files you'll find:**
+
+- `server.js` - Main server entry point
+- `controllers/` - Business logic for tasks, messages, employees, etc.
+- `routes/` - API endpoints
+- `middlewares/` - Authentication and validation
+- `collectionTypes/` - Data schemas (Employee, Task, Message, Conversation, Owner)
+- `config/` - Firebase, Nodemailer, and Twilio setup
+
+### Frontend (`/frontend`)
+
+A modern Next.js + React application with TypeScript and Tailwind CSS:
+
+- **Dashboard**: Overview of tasks and assignments
+- **Task Board**: Visual task management interface
+- **Employee Management**: CRUD operations for employee data
+- **Messaging**: Real-time chat system
+- **Setup Page**: Initial configuration
+
+**Key files you'll find:**
+
+- `app/` - Next.js app router and pages
+- `components/` - Reusable React components
+- `services/` - API and Socket.io client utilities
+- `context/` - React context for auth, socket, and layout state
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 16+
-- Firebase account
-- Email service (Nodemailer)
+- Node.js (v14+ recommended)
+- npm or yarn
+- Firebase credentials (generate a json file from https://console.firebase.google.com/u/0/project/your-project-id/settings/serviceaccounts then place it in `backend/` directory and name it serviceAccountKey.json)
 
-### Running the Application
+### Setup
 
-**Terminal 1 - Backend**
+**1. Clone and install dependencies:**
 
 ```bash
-cd backend-v2
+# Backend
+cd backend
 npm install
-npm start
+
+# Frontend
+cd frontend
+npm install
 ```
 
-**Terminal 2 - Frontend**
+**2. Configure the backend:**
+
+- Add a `.env` file in the `backend/` directory with your configuration like `.env.example`
+
+- Place your Firebase `serviceAccountKey.json` in the `backend/` directory
+
+**3. Configure the frontend:**
+
+- Create a `.env.local` file in the `frontend/` directory:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+### Running the Project
+
+**Start the backend server:**
+
+```bash
+cd backend
+npm start          # Production mode
+# or
+npm run dev        # Development mode with auto-reload via nodemon
+```
+
+Server will be available at `http://localhost:5000`
+
+**Start the frontend:**
 
 ```bash
 cd frontend
-npm install
-npm run dev
+npm run dev        # Development mode
+# or
+npm run build && npm start   # Production mode
 ```
 
-Then visit: `http://localhost:3000`
+Frontend will be available at `http://localhost:3000` (or next available port)
 
-## 📚 Documentation
+**Both should be running simultaneously** for the full application to work.
 
-Read these in order:
-
-1. **[SETUP_TESTING_GUIDE.md](SETUP_TESTING_GUIDE.md)** - How to run and test
-2. **[API_INTEGRATION_GUIDE.md](API_INTEGRATION_GUIDE.md)** - API endpoints reference
-3. **[UI_COMPONENT_ARCHITECTURE.md](UI_COMPONENT_ARCHITECTURE.md)** - Component structure
-4. **[COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)** - What's been implemented
-
-## ✨ Key Features
-
-### Authentication
-
-- Passwordless email-based login
-- Automatic user type detection (owner/employee)
-- Employee invitation via email
-- Account setup with password creation
-- Token persistence and management
-
-### Employee Management
-
-- Create employees with details
-- Send setup invitations
-- View employee list
-- Edit employee information
-- Delete employees
-- Track account setup status
-
-### Task Management
-
-- Create tasks with description, priority, due date
-- Assign tasks to employees
-- Update task status (todo → in-progress → done)
-- Search and filter tasks
-- Edit and delete tasks
-- Real-time task board
-
-### User Experience
-
-- Clean, responsive UI
-- Intuitive navigation
-- Loading and error states
-- Form validation
-- Confirmation dialogs
-- User profile menu with logout
-
-## 🏗️ Project Structure
+## Project Structure at a Glance
 
 ```
-employee-task-management/
-├── backend-v2/              # Express backend
-│   ├── routes/              # API routes
-│   ├── controllers/         # Route handlers
-│   ├── models/              # Data models
-│   ├── config/              # Configuration
-│   └── app.js              # Main app
-├── frontend/                # Next.js frontend
-│   ├── app/                 # App router
-│   ├── components/          # React components
-│   ├── services/            # API clients
-│   ├── context/             # State management
-│   └── package.json
-└── Documentation/           # Guides and references
+backend/
+├── controllers/     # API logic and request handlers
+├── routes/          # Express route definitions
+├── middlewares/     # Auth and validation middleware
+├── collectionTypes/ # MongoDB collection schemas
+├── config/          # Firebase, Email, SMS configs
+├── socket/          # Socket.io real-time features
+├── utils/           # Helper functions (auth, email, etc)
+└── server.js        # Entry point
+
+frontend/
+├── app/             # Next.js pages and layout
+├── components/      # Reusable UI components
+├── services/        # API and Socket.io clients
+├── context/         # React context providers
+├── utils/           # Helper functions
+└── public/          # Static assets
 ```
 
-## 🔑 API Endpoints
+## Key Features
 
-### Owner Auth
-
-- `POST /api/owner/auth/send-code`
-- `POST /api/owner/auth/validate-code`
-
-### Employee Auth
-
-- `GET /api/employee/auth/verify-token`
-- `POST /api/employee/auth/setup-account`
-- `POST /api/employee/auth/login`
-- `POST /api/employee/auth/send-code`
-- `POST /api/employee/auth/validate-code`
-
-### Employees (Owner Only)
-
-- `POST /api/owner/employees/create`
-- `GET /api/owner/employees`
-- `GET /api/owner/employees/:id`
-- `PUT /api/owner/employees/:id`
-- `DELETE /api/owner/employees/:id`
-
-### Tasks
-
-- `POST /api/tasks/create`
-- `GET /api/tasks`
-- `GET /api/tasks/:id`
-- `PUT /api/tasks/:id`
-- `DELETE /api/tasks/:id`
-- `PUT /api/tasks/:id/assign/:employeeId`
-- `PUT /api/tasks/:id/status`
-
-See [API_INTEGRATION_GUIDE.md](API_INTEGRATION_GUIDE.md) for detailed info.
-
-## 🎯 Testing
-
-### Manual Testing Checklist
-
-- [ ] Owner login with email code
-- [ ] Employee setup via email link
-- [ ] Create employee
-- [ ] Create task
-- [ ] Update task status
-- [ ] Search and filter tasks
-- [ ] Delete employee
-- [ ] Logout functionality
-
-See [SETUP_TESTING_GUIDE.md](SETUP_TESTING_GUIDE.md) for detailed test cases.
-
-## 🔐 Authentication Flow
-
-```
-Login Page
-    ↓
-Choose Email/Phone
-    ↓
-Enter Email/Phone
-    ↓
-Receive Verification Code
-    ↓
-Enter Code
-    ↓
-Validate Code
-    ↓
-Determine User Type (Owner/Employee)
-    ↓
-Owner → Dashboard
-Employee → Setup Account (if new) → Dashboard
-```
-
-## 📊 Data Models
-
-### User/Owner
-
-```json
-{
-  "id": "uuid",
-  "email": "owner@example.com",
-  "type": "owner",
-  "token": "jwt_token",
-  "createdAt": "2024-02-06"
-}
-```
-
-### Employee
-
-```json
-{
-  "id": "uuid",
-  "ownerId": "uuid",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phoneNumber": "+1234567890",
-  "department": "Sales",
-  "role": "Sales Executive",
-  "accountSetup": true,
-  "setupToken": "setup_token",
-  "createdAt": "2024-02-06"
-}
-```
-
-### Task
-
-```json
-{
-  "id": "uuid",
-  "ownerId": "uuid",
-  "title": "Task Title",
-  "description": "Task description",
-  "status": "todo|in-progress|done",
-  "priority": "low|normal|high",
-  "assignedTo": "employee_id",
-  "dueDate": "2024-02-10",
-  "createdAt": "2024-02-06",
-  "updatedAt": "2024-02-06"
-}
-```
-
-## 🛠️ Technologies Used
-
-### Frontend
-
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **FontAwesome** - Icons
-- **React Hooks** - State management
-- **Context API** - Global state
-
-### Backend
-
-- **Node.js** - Runtime
-- **Express.js** - Web framework
-- **Firebase/Firestore** - Database
-- **JWT** - Authentication
-- **Nodemailer** - Email service
-- **Twilio** - SMS service (optional)
-
-## 📋 Requirements Met
-
-✅ Passwordless authentication system  
-✅ Employee creation with email invitations  
-✅ Account setup for employees  
-✅ Task management (CRUD)  
-✅ Task assignment to employees  
-✅ Task status tracking  
-✅ Task filtering and search  
-✅ Protected routes  
-✅ User logout  
-✅ Error handling  
-✅ Loading states  
-✅ Responsive UI  
-✅ API integration  
-✅ State management  
-✅ Comprehensive documentation
-
-## 🚧 Future Enhancements
-
-- [ ] Real-time messaging with WebSockets
-- [ ] Task notifications
-- [ ] Employee dashboard
-- [ ] Task comments and activity logs
-- [ ] File attachments
-- [ ] Admin analytics
-- [ ] Mobile app
-- [ ] Calendar integration
-- [ ] Advanced permissions
-
-## 🐛 Troubleshooting
-
-**Problem**: API returns 401
-
-- Solution: Check if token is saved in localStorage, re-login
-
-**Problem**: Tasks/Employees not loading
-
-- Solution: Verify backend is running, check API URL in .env.local
-
-**Problem**: Email codes not received
-
-- Solution: Check backend console, verify email configuration
-
-**Problem**: Authentication state lost on refresh
-
-- Solution: Check browser localStorage, verify AuthContext setup
-
-See [SETUP_TESTING_GUIDE.md](SETUP_TESTING_GUIDE.md) for more troubleshooting.
-
-## 📞 Support Documentation
-
-- **Setup Guide**: [SETUP_TESTING_GUIDE.md](SETUP_TESTING_GUIDE.md)
-- **API Reference**: [API_INTEGRATION_GUIDE.md](API_INTEGRATION_GUIDE.md)
-- **Architecture**: [UI_COMPONENT_ARCHITECTURE.md](UI_COMPONENT_ARCHITECTURE.md)
-- **Summary**: [COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md)
-
-## 📝 License
-
-Project completed: February 6, 2024
-
-## 🎉 Summary
-
-This is a **production-ready** employee task management system with:
-
-- Complete authentication flow
-- Full CRUD operations for employees and tasks
-- Responsive UI with proper error handling
-- Clean API layer with TypeScript
-- Comprehensive documentation
-- Ready for deployment
-
-Start with [SETUP_TESTING_GUIDE.md](SETUP_TESTING_GUIDE.md) to get running immediately!
-
----
-
-**Built with ❤️ using Next.js, Node.js, and Firestore**
+- **Employee Management** - Create and manage employee profiles
+- **Task Board** - Organize tasks with visual status tracking
+- **Real-time Messaging** - Chat between team members instantly
+- **Notifications** - Email and SMS for receiving code and account setup link
+- **Secure Auth** - JWT-based authentication for secure sessions
+- **Cloud Storage** - Firebase backend for scalability
