@@ -1,78 +1,152 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { faFilter, faMagnifyingGlass, faCheckCircle } from "@fortawesome/free-solid-svg-icons"
+import { faFilter, faMagnifyingGlass, faCheckCircle, faPencil, faTrash } from "@fortawesome/free-solid-svg-icons"
 import NewTaskModal from "./NewTaskModal"
 import EditTaskModal from "./EditTaskModal"
+import { taskApi } from "@/app/services/api"
+import { useAuth } from "@/app/context/AuthContext"
+import { formatDate } from "@/app/utils/formatTimestamp"
 
 interface Task {
-  id: number
+  id: string
   title: string
   description: string
   status: "todo" | "in-progress" | "done"
-  assignedEmployee: string
+  assignedTo?: string
+  assignedEmployee?: string
+  employeeName?: string
+  dueDate?: string
+  priority?: "low" | "normal" | "high"
 }
 
 export default function TaskBoard() {
+  const { user } = useAuth()
+  const isOwner = user?.type === "owner"
+
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
   const [isEditTaskOpen, setIsEditTaskOpen] = useState(false)
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 1,
-      title: "test",
-      description: "for test purpose",
-      status: "todo",
-      assignedEmployee: "Jamie Chen",
-    },
-    {
-      id: 2,
-      title: "Prepare weekly schedule",
-      description: "Create schedule for next week",
-      status: "in-progress",
-      assignedEmployee: "Employee 1",
-    },
-  ])
+  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>()
+  const [tasks, setTasks] = useState<Task[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
-  const handleCreateTask = (data: any) => {
-    const newTask: Task = {
-      id: tasks.length + 1,
-      ...data,
+  useEffect(() => {
+    fetchTasks()
+  }, [])
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true)
+      setError("")
+      const response = await taskApi.getAll()
+      setTasks(response.tasks || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load tasks")
+      console.error("Error fetching tasks:", err)
+    } finally {
+      setLoading(false)
     }
-    setTasks([...tasks, newTask])
-    setIsNewTaskOpen(false)
   }
 
-  const handleEditTask = (data: any) => {
-    if (selectedTask) {
+  const handleCreateTask = async (data: any) => {
+    try {
+      const response = await taskApi.create({
+        title: data.title,
+        description: data.description,
+        assignedTo: data.assignedTo || null,
+        dueDate: data.dueDate || null,
+        priority: data.priority || "normal",
+        status: "todo",
+      })
+
+      if (response.taskId) {
+        const newTask: Task = {
+          id: response.taskId,
+          title: data.title,
+          description: data.description,
+          status: "todo",
+          assignedTo: data.assignedTo,
+          dueDate: data.dueDate,
+          priority: data.priority || "normal",
+        }
+        setTasks([newTask, ...tasks])
+      }
+
+      setIsNewTaskOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create task")
+      console.error("Error creating task:", err)
+    }
+  }
+
+  const handleEditTask = async (data: any) => {
+    if (!selectedTaskId) return
+
+    try {
+      await taskApi.update(selectedTaskId, {
+        title: data.title,
+        description: data.description,
+        assignedTo: data.assignedTo || null,
+        dueDate: data.dueDate || null,
+        priority: data.priority || "normal",
+        status: data.status || "todo",
+      })
+
       setTasks(
         tasks.map((task) =>
-          task.id === selectedTask.id
+          task.id === selectedTaskId
             ? {
               ...task,
-              ...data,
+              title: data.title,
+              description: data.description,
+              assignedTo: data.assignedTo,
+              dueDate: data.dueDate,
+              status: data.status || "todo",
+              priority: data.priority || "normal",
             }
             : task
         )
       )
+
       setIsEditTaskOpen(false)
-      setSelectedTask(null)
+      setSelectedTaskId(undefined)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update task")
+      console.error("Error updating task:", err)
     }
   }
 
-  const handleMarkDone = (taskId: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === taskId
-          ? {
-            ...task,
-            status: "done",
-          }
-          : task
+  const handleStatusChange = async (task: Task, newStatus: "todo" | "in-progress" | "done") => {
+    try {
+      await taskApi.updateStatus(task.id, newStatus)
+
+      setTasks(
+        tasks.map((t) =>
+          t.id === task.id ? { ...t, status: newStatus } : t
+        )
       )
-    )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update task status")
+      console.error("Error updating task status:", err)
+    }
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) {
+      return
+    }
+
+    try {
+      await taskApi.delete(taskId)
+      setTasks(tasks.filter((t) => t.id !== taskId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete task")
+      console.error("Error deleting task:", err)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -86,6 +160,139 @@ export default function TaskBoard() {
     }
   }
 
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch =
+      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === "all" || task.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  if (!isOwner && loading) {
+    return (
+      <div className="flex-1 overflow-auto p-8">
+        <div className="flex items-center justify-center py-12">
+          <p className="text-gray-500">Loading your tasks...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // EMPLOYEE VIEW
+  if (!isOwner) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <div className="p-8">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900 mb-2">My Tasks</h1>
+            <p className="text-gray-600 text-sm">View and update tasks assigned to you.</p>
+          </div>
+
+          {error && (
+            <div className="my-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center gap-4 my-8">
+            <div className="flex-1 relative">
+              <FontAwesomeIcon
+                icon={faMagnifyingGlass}
+                className="absolute left-3 top-3 text-gray-400 w-5 h-5"
+              />
+              <input
+                type="text"
+                placeholder="Search your tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-700"
+            >
+              <option value="all">All Status</option>
+              <option value="todo">To Do</option>
+              <option value="in-progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+
+          {filteredTasks.length === 0 ? (
+            <div className="flex items-center justify-center py-12 bg-white rounded border border-gray-200">
+              <p className="text-gray-500">
+                {tasks.length === 0 ? "No tasks assigned to you yet." : "No tasks match your filters."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredTasks.map((task) => (
+                <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-gray-900 font-semibold text-lg">{task.title}</h3>
+                      <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(task.status)}`}>
+                        {task.status === "todo" ? "To Do" : task.status === "in-progress" ? "In Progress" : "Done"}
+                      </span>
+                      {task.priority && (
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${task.priority === "high"
+                          ? "bg-red-100 text-red-700"
+                          : task.priority === "normal"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700"
+                          }`}>
+                          {task.priority}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 text-sm">{task.description}</p>
+                    {task.dueDate && (
+                      <p className="text-gray-500 text-xs mt-2">
+                        Due: {formatDate(task.dueDate)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status Update Buttons for Employee */}
+                  <div className="flex gap-2">
+                    {task.status !== "todo" && (
+                      <button
+                        onClick={() => handleStatusChange(task, "todo")}
+                        className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium text-sm"
+                      >
+                        Back to Todo
+                      </button>
+                    )}
+                    {task.status !== "in-progress" && (
+                      <button
+                        onClick={() => handleStatusChange(task, "in-progress")}
+                        className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded font-medium text-sm"
+                      >
+                        In Progress
+                      </button>
+                    )}
+                    {task.status !== "done" && (
+                      <button
+                        onClick={() => handleStatusChange(task, "done")}
+                        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium text-sm flex items-center gap-2"
+                      >
+                        <FontAwesomeIcon icon={faCheckCircle} className="w-4 h-4" />
+                        Mark Done
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // OWNER VIEW - CRUD Interface
   return (
     <div className="flex-1 overflow-auto">
       <NewTaskModal
@@ -95,16 +302,19 @@ export default function TaskBoard() {
       />
       <EditTaskModal
         isOpen={isEditTaskOpen}
-        onClose={() => setIsEditTaskOpen(false)}
+        taskId={selectedTaskId}
+        onClose={() => {
+          setIsEditTaskOpen(false)
+          setSelectedTaskId(undefined)
+        }}
         onSubmit={handleEditTask}
-        task={selectedTask}
       />
 
       <div className="p-8">
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">Task board</h1>
-            <p className="text-gray-600 text-sm">Filter by employee and status, then search by title or description.</p>
+            <h1 className="text-3xl font-semibold text-gray-900 mb-2">Task Board</h1>
+            <p className="text-gray-600 text-sm">Manage and track your tasks by status and priority.</p>
           </div>
           <button
             onClick={() => setIsNewTaskOpen(true)}
@@ -114,6 +324,12 @@ export default function TaskBoard() {
             New task
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
         <div className="flex items-center gap-4 mb-8">
           <div className="flex-1 relative">
@@ -133,64 +349,86 @@ export default function TaskBoard() {
             <FontAwesomeIcon icon={faFilter} className="w-4 h-4" />
             Filters
           </button>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-700">
-            <option>All...</option>
-            <option>todo</option>
-            <option>in-progress</option>
-            <option>done</option>
-          </select>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-700">
-            <option>All...</option>
-            <option>Employee 1</option>
-            <option>Employee 2</option>
-            <option>Jamie Chen</option>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-gray-700"
+          >
+            <option value="all">All Status</option>
+            <option value="todo">To Do</option>
+            <option value="in-progress">In Progress</option>
+            <option value="done">Done</option>
           </select>
         </div>
 
-        <div className="space-y-3">
-          {tasks
-            .filter(
-              (task) =>
-                task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                task.description.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .map((task) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-gray-500">Loading tasks...</p>
+          </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="flex items-center justify-center py-12 bg-white rounded border border-gray-200">
+            <p className="text-gray-500">
+              {tasks.length === 0 ? "No tasks yet. Create one to get started." : "No tasks match your filters."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredTasks.map((task) => (
               <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="text-gray-900 font-semibold">{task.title}</h3>
                       <span className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(task.status)}`}>
-                        {task.status}
+                        {task.status === "todo" ? "To Do" : task.status === "in-progress" ? "In Progress" : "Done"}
                       </span>
-                      <span className="text-xs text-gray-600 font-medium">{task.assignedEmployee}</span>
+                      {task.priority && (
+                        <span className={`text-xs font-medium px-2 py-1 rounded ${task.priority === "high"
+                          ? "bg-red-100 text-red-700"
+                          : task.priority === "normal"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700"
+                          }`}>
+                          {task.priority}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-gray-600 text-sm">{task.description}</p>
+                    <p className="text-gray-600 text-sm mb-2">{task.description}</p>
+                    {task.assignedEmployee && (
+                      <p className="text-gray-500 text-xs">
+                        Assigned to: {task.employeeName || task.assignedEmployee}
+                      </p>
+                    )}
+                    {task.dueDate && (
+                      <p className="text-gray-500 text-xs">
+                        Due: {formatDate(task.dueDate)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    {task.status !== "done" && (
-                      <button
-                        onClick={() => handleMarkDone(task.id)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm flex items-center gap-2"
-                      >
-                        <FontAwesomeIcon icon={faCheckCircle} className="w-4 h-4" />
-                        Mark done
-                      </button>
-                    )}
                     <button
                       onClick={() => {
-                        setSelectedTask(task)
+                        setSelectedTaskId(task.id)
                         setIsEditTaskOpen(true)
                       }}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded font-medium text-sm"
+                      className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded font-medium text-sm flex items-center gap-2"
                     >
+                      <FontAwesomeIcon icon={faPencil} className="w-4 h-4" />
                       Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTask(task.id)}
+                      className="px-3 py-2 text-red-700 hover:bg-red-50 rounded font-medium text-sm flex items-center gap-2"
+                    >
+                      <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
+                      Delete
                     </button>
                   </div>
                 </div>
               </div>
             ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

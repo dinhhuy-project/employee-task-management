@@ -1,132 +1,272 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react";
+import { taskApi, employeeApi } from "@/app/services/api";
+import { formatDateForInput } from "@/app/utils/formatTimestamp";
 
-interface Task {
-  id: number
-  title: string
-  description: string
-  status: "todo" | "in-progress" | "done"
-  assignedEmployee: string
+interface TaskFormData {
+  title: string;
+  description: string;
+  status: "todo" | "in-progress" | "done";
+  assignedTo: string;
+  dueDate: string;
+  priority: "low" | "normal" | "high";
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface EditTaskModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (data: any) => void
-  task: Task | null
+  isOpen: boolean;
+  taskId?: string;
+  onClose: () => void;
+  onSubmit: (data: TaskFormData) => Promise<void> | void;
 }
 
-export default function EditTaskModal({ isOpen, onClose, onSubmit, task }: EditTaskModalProps) {
-  const [formData, setFormData] = useState({
-    title: task?.title || "",
-    description: task?.description || "",
-    status: task?.status || "todo",
-    assignedEmployee: task?.assignedEmployee || "Unassigned",
-  })
+const initialForm: TaskFormData = {
+  title: "",
+  description: "",
+  status: "todo",
+  assignedTo: "",
+  dueDate: "",
+  priority: "normal",
+};
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
+export default function EditTaskModal({
+  isOpen,
+  taskId,
+  onClose,
+  onSubmit,
+}: EditTaskModalProps) {
+  const [formData, setFormData] = useState<TaskFormData>(initialForm);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isOpen || !taskId) return;
+
+    const loadData = async () => {
+      try {
+        setIsFetching(true);
+        setError("");
+
+        const [taskRes, empRes] = await Promise.all([
+          taskApi.getById(taskId),
+          employeeApi.getAll(),
+        ]);
+
+        const task = taskRes.task ?? taskRes;
+
+        setFormData({
+          title: task?.title ?? "",
+          description: task?.description ?? "",
+          status: task?.status ?? "todo",
+          assignedTo: task?.assignedTo ?? "",
+          dueDate: formatDateForInput(task?.dueDate),
+          priority: task?.priority ?? "normal",
+        });
+
+        setEmployees(empRes.employees ?? []);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load task data"
+        );
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    loadData();
+  }, [isOpen, taskId]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-    }))
-  }
+    }));
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!isOpen || !task) return null
+    const trimmed: TaskFormData = {
+      ...formData,
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+    };
+
+    if (!trimmed.title) return;
+
+    try {
+      setIsSubmitting(true);
+      await onSubmit(trimmed);
+      handleClose();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update task"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setError("");
+    setFormData(initialForm);
+    onClose();
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-        <div className="flex items-center justify-between mb-6">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-1">Edit task</h1>
-            <p className="text-sm text-gray-600">Use short titles. Keep descriptions crisp.</p>
+            <h2 className="text-xl font-semibold">Edit Task</h2>
+            <p className="text-sm text-gray-500">
+              Keep titles short and descriptions clear.
+            </p>
           </div>
           <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
+            onClick={handleClose}
+            className="text-gray-500 hover:text-gray-700 text-lg"
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-              required
-            />
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+            {error}
           </div>
+        )}
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 resize-none"
-            />
+        {isFetching ? (
+          <div className="py-10 text-center text-gray-500">
+            Loading task...
           </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
-                name="status"
-                value={formData.status}
+              <label className="block text-sm mb-1">Title</label>
+              <input
+                name="title"
+                value={formData.title}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white"
-              >
-                <option value="todo">todo</option>
-                <option value="in-progress">in-progress</option>
-                <option value="done">done</option>
-              </select>
+                required
+                className="w-full px-4 py-2 border rounded focus:outline-none focus:border-blue-500"
+              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Assigned employee</label>
-              <select
-                name="assignedEmployee"
-                value={formData.assignedEmployee}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white"
-              >
-                <option value="Unassigned">Unassigned</option>
-                <option value="Employee 1">Employee 1</option>
-                <option value="Employee 2">Employee 2</option>
-                <option value="Employee 3">Employee 3</option>
-              </select>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium"
-            >
-              Save changes
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="block text-sm mb-1">Description</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={4}
+                className="w-full px-4 py-2 border rounded focus:outline-none focus:border-blue-500 resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">Due Date</label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Priority</label>
+                <select
+                  name="priority"
+                  value={formData.priority}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded bg-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded bg-white"
+                >
+                  <option value="todo">To Do</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Assigned</label>
+                <select
+                  name="assignedTo"
+                  value={formData.assignedTo}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border rounded bg-white"
+                >
+                  <option value="">Unassigned</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-5 py-2 text-gray-600 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded"
+              >
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
-  )
+  );
 }

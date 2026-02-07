@@ -23,20 +23,26 @@ export default function Home() {
           <p className="text-gray-600 text-sm">Choose your sign in method</p>
         </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={() => setEntryMethod("email")}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-sm transition-colors"
-          >
-            Use Email
-          </button>
+        <div className="space-y-4">
+          <div>
+            <button
+              onClick={() => setEntryMethod("phone")}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-sm transition-colors"
+            >
+              Sign in as Owner (Phone)
+            </button>
+            <p className="text-xs text-gray-500 mt-1">Receive code via SMS</p>
+          </div>
 
-          <button
-            onClick={() => setEntryMethod("phone")}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-sm transition-colors"
-          >
-            Use Phone Number
-          </button>
+          <div>
+            <button
+              onClick={() => setEntryMethod("email")}
+              className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded text-sm transition-colors"
+            >
+              Sign in as Employee (Email)
+            </button>
+            <p className="text-xs text-gray-500 mt-1">Receive code via email</p>
+          </div>
         </div>
       </main>
     </div>
