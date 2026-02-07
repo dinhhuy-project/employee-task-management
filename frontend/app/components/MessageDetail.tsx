@@ -89,13 +89,13 @@ export default function MessageDetail({
     }
 
     socketService.on("message-received", (data) => {
-      if (data.message.conversationId === selectedConversationId) {
+      if (data?.message?.conversationId === selectedConversationId) {
         setConversationMessages((prev) => sortMessages([...prev, data.message]))
       }
     })
 
     socketService.on("message-sent", (data) => {
-      if (data.message.conversationId === selectedConversationId) {
+      if (data?.message?.conversationId === selectedConversationId) {
         setConversationMessages((prev) => sortMessages([...prev, data.message]))
         setSending(false)
       }
@@ -137,18 +137,33 @@ export default function MessageDetail({
 
     try {
       setSending(true)
+      const messageContent = replyContent
+
+      // Optimistic update - add message to UI immediately
+      const tempId = `temp-${Date.now()}`
+      const tempMessage: Message = {
+        id: tempId,
+        conversationId: selectedConversationId,
+        senderId: user.id,
+        senderName: user.name || user.email || "Unknown",
+        content: messageContent,
+        timestamp: new Date().toISOString(),
+        isRead: false,
+      }
+      setConversationMessages((prev) => [...prev, tempMessage])
 
       socketService.sendMessage({
         conversationId: selectedConversationId,
         senderId: user.id,
         senderName: user.name || user.email || "Unknown",
         recipientId: otherUser.id,
-        content: replyContent,
+        content: messageContent,
       })
 
       setReplyContent("")
       socketService.userStopTyping(selectedConversationId, user.id)
       setIsTyping(false)
+      setSending(false)
     } catch (error) {
       console.error("Error sending message:", error)
       setSending(false)
